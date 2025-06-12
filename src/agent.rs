@@ -1,7 +1,8 @@
 use crate::error::{DynamodeError, Result};
 use crate::model::DynamoModel;
+use aws_sdk_dynamodb::config::Region;
 use aws_sdk_dynamodb::types::AttributeValue;
-use aws_sdk_dynamodb::{Client};
+use aws_sdk_dynamodb::Client;
 use serde::{de::DeserializeOwned, Serialize};
 
 pub struct DynamodeAgent {
@@ -11,10 +12,11 @@ pub struct DynamodeAgent {
 impl DynamodeAgent {
     /// Connects to DynamoDB running locally at http://localhost:8000
     pub async fn connect_local() -> Self {
+        let region = Region::new("us-west-2");
         let shared_config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
 
-        // Use endpoint_url (no Endpoint struct needed)
         let dynamo_config = aws_sdk_dynamodb::config::Builder::from(&shared_config)
+            .region(region) //
             .endpoint_url("http://localhost:8000")
             .build();
 
