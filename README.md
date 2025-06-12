@@ -23,7 +23,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-dynamode = { path = "." }  # or use your git URL if open source!
+dynamode = { version = last }
 serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 aws-sdk-dynamodb = "1"
