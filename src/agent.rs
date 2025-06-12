@@ -83,6 +83,97 @@ impl DynamodeAgent {
             Ok(None)
         }
     }
+    /// Update an item (full overwrite)
+    pub async fn update<M: DynamoModel + Serialize>(&self, item: &M) -> Result<()> {
+        // In DynamoDB, put_item with the same key overwrites. For partial update, you would use UpdateItem.
+        self.put(item).await
+    }
+
+    /// Delete an item by (pk, sk)
+    pub async fn delete<M: DynamoModel>(&self, keys: (String, String)) -> Result<()> {
+        let table_name = M::table_name();
+        let (pk, sk) = keys;
+        let mut key_map = std::collections::HashMap::new();
+        key_map.insert("pk".to_string(), AttributeValue::S(pk));
+        key_map.insert("sk".to_string(), AttributeValue::S(sk));
+
+        self.client
+            .delete_item()
+            .table_name(table_name)
+            .set_key(Some(key_map))
+            .send()
+            .await
+            .map_err(|e| DynamodeError::DynamoDb(e.to_string()))?;
+
+        Ok(())
+    }
+
+    /// Query all items with a given partition key (e.g. all cars for "bmw")
+    pub async fn query_by_pk<M: DynamoModel + DeserializeOwned>(
+        &self,
+        pk_value: String,
+    ) -> Result<Vec<M>> {
+        let table_name = M::table_name();
+        let mut expr_attr_names = std::collections::HashMap::new();
+        expr_attr_names.insert("#pk".to_string(), "pk".to_string());
+
+        let mut expr_attr_vals = std::collections::HashMap::new();
+        expr_attr_vals.insert(":pk_val".to_string(), AttributeValue::S(pk_value.clone()));
+
+        let resp = self
+            .client
+            .query()
+            .table_name(table_name)
+            .key_condition_expression("#pk = :pk_val")
+            .expression_attribute_names("#pk", "pk")
+            .expression_attribute_values(":pk_val", AttributeValue::S(pk_value))
+            .send()
+            .await
+            .map_err(|e| DynamodeError::DynamoDb(e.to_string()))?;
+
+        let mut results = Vec::new();
+        if let Some(items) = resp.items {
+            for item in items {
+                let mut map = serde_json::Map::new();
+                for (k, v) in item {
+                    map.insert(k, av_to_json_value(&v)?);
+                }
+                let json = serde_json::Value::Object(map);
+                let model: M = serde_json::from_value(json)
+                    .map_err(|e| DynamodeError::Deserialization(e.to_string()))?;
+                results.push(model);
+            }
+        }
+        Ok(results)
+    }
+
+    /// Scan all items in the table (admin/debug only!)
+    pub async fn scan_all<M: DynamoModel + DeserializeOwned>(&self) -> Result<Vec<M>> {
+        let table_name = M::table_name();
+
+        let resp = self
+            .client
+            .scan()
+            .table_name(table_name)
+            .send()
+            .await
+            .map_err(|e| DynamodeError::DynamoDb(e.to_string()))?;
+
+        let mut results = Vec::new();
+        if let Some(items) = resp.items {
+            for item in items {
+                let mut map = serde_json::Map::new();
+                for (k, v) in item {
+                    map.insert(k, av_to_json_value(&v)?);
+                }
+                let json = serde_json::Value::Object(map);
+                let model: M = serde_json::from_value(json)
+                    .map_err(|e| DynamodeError::Deserialization(e.to_string()))?;
+                results.push(model);
+            }
+        }
+        Ok(results)
+    }
 }
 
 // Helper: Convert serde_json::Value to AttributeValue
