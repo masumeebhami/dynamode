@@ -23,12 +23,12 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-dynamode = { version = last }
-serde = { version = "1.0", features = ["derive"] }
-tokio = { version = "1", features = ["full"] }
-aws-sdk-dynamodb = "1"
-aws-config = "1"
-async-trait = "0.1"
+dynamode = { version = "*" }
+serde = { version = "*", features = ["derive"] }
+tokio = { version = "*", features = ["full"] }
+aws-sdk-dynamodb = "*"
+aws-config = "*"
+async-trait = "*"
 ```
 
 ## 🛠️ Running DynamoDB Local
